@@ -8,11 +8,37 @@ import {
   Grid,
   Typography,
   Box,
+  Paper,
 } from "@mui/material";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import toast from "react-hot-toast";
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#3f51b5",
+    },
+    secondary: {
+      main: "#f50057",
+    },
+  },
+  typography: {
+    h5: {
+      fontWeight: 700,
+    },
+    h6: {
+      color: "#757575",
+    },
+  },
+});
 
 const BookingForm = () => {
   const { id } = useParams();
@@ -37,15 +63,14 @@ const BookingForm = () => {
     if (!user) {
       navigate("/");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   useEffect(() => {
     if (isEdit) {
       const getBookings = async () => {
         const response = await axios.get(
-          `http://localhost:4000/api/hall/booking?id=${id}`
+          `http://192.168.0.106:4000/api/hall/booking?id=${id}`
         );
-        console.log(response.data.data);
         setFormData(response.data.data);
       };
       getBookings();
@@ -61,52 +86,60 @@ const BookingForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-   
-    if (isEdit) {
-      try {
+
+    if (new Date(formData.startTime) < new Date()) {
+      toast.error("Please select a valid date and time");
+      return;
+    }
+    if (formData.startTime > formData.endTime) {
+      toast.error("Start time should be less than end time");
+      return;
+    }
+
+    try {
+      if (isEdit) {
         await axios.put(
-          `http://localhost:4000/api/hall/booking?id=${id}`,
+          `http://192.168.0.106:4000/api/hall/booking?id=${id}`,
           formData
         );
-        alert("Booking Updated");
-      } catch (error) {
-        console.error(error);
+        toast.success("Booking Updated");
+      } else {
+        await axios.post(
+          "http://192.168.0.106:4000/api/hall/booking",
+          formData
+        );
+        toast.success("Booking Successful");
       }
-    } else {
-      if (new Date(formData.startTime) < new Date()) {
-        alert("Please select a valid date and time");
-        return;
-      }
-      if(formData.startTime > formData.endTime) {
-        alert("Start time should be less than end time");
-        return;
-      }
-      try {
-        await axios.post("http://localhost:4000/api/hall/booking", formData);
-        alert("Booking Successfull");
-      } catch (error) {
-        if(error.response.status === 409) alert('Booked already exists in that time');
-        else alert('Booking failed');
-      }
+    } catch (error) {
+      if (error.response?.status === 409)
+        toast.error("Booked already exists in that time");
+      else toast.error("Booking failed");
     }
   };
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       <Navbar />
       <Container component="main" maxWidth="md">
-        <Box
+        <Paper
+          elevation={6}
           sx={{
-            marginTop: 8,
+            mt: 8,
+            p: 4,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
+            borderRadius: 2,
           }}
         >
           <Typography component="h1" variant="h5">
             {isEdit ? "Edit Booking" : "Booking Form"}
           </Typography>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ mt: 3, width: "100%" }}
+          >
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -116,6 +149,7 @@ const BookingForm = () => {
                   value={formData.fullName}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -126,6 +160,7 @@ const BookingForm = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -136,6 +171,7 @@ const BookingForm = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -147,40 +183,59 @@ const BookingForm = () => {
                   value={formData.userType}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 >
                   <MenuItem value="faculty">Faculty</MenuItem>
                   <MenuItem value="student">Student</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  name="startTime"
-                  label="Start Time"
-                  type="datetime-local"
-                  fullWidth
-                  value={formData.startTime}
-                  onChange={handleChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  required
-                  disabled = {isEdit}
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DemoContainer components={["DateTimePicker"]}>
+                    <DateTimePicker
+                      name="startTime"
+                      label="Start Time"
+                      onChange={(date) =>
+                        setFormData({ ...formData, startTime: date })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          fullWidth
+                          {...params}
+                          sx={{
+                            mb: 2,
+                            "& .MuiInputBase-root": { borderRadius: 2 },
+                          }}
+                        />
+                      )}
+                      required
+                    />
+                  </DemoContainer>
+                </LocalizationProvider>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  name="endTime"
-                  label="End Time"
-                  type="datetime-local"
-                  fullWidth
-                  value={formData.endTime}
-                  onChange={handleChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  required
-                  disabled = {isEdit}
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DemoContainer components={["DateTimePicker"]}>
+                    <DateTimePicker
+                      name="endTime"
+                      label="End Time"
+                      onChange={(date) =>
+                        setFormData({ ...formData, endTime: date })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          fullWidth
+                          {...params}
+                          sx={{
+                            mb: 2,
+                            "& .MuiInputBase-root": { borderRadius: 2 },
+                          }}
+                        />
+                      )}
+                      required
+                    />
+                  </DemoContainer>
+                </LocalizationProvider>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -190,6 +245,7 @@ const BookingForm = () => {
                   value={formData.purpose}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -201,6 +257,7 @@ const BookingForm = () => {
                   value={formData.noOfAttendees}
                   onChange={handleChange}
                   required
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -212,6 +269,7 @@ const BookingForm = () => {
                   rows={4}
                   value={formData.specialRequirement}
                   onChange={handleChange}
+                  sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                 />
               </Grid>
               {isEdit && (
@@ -224,6 +282,7 @@ const BookingForm = () => {
                     value={formData.status}
                     onChange={handleChange}
                     required
+                    sx={{ mb: 2, "& .MuiInputBase-root": { borderRadius: 2 } }}
                   >
                     <MenuItem value="Booked">Booked</MenuItem>
                     <MenuItem value="Completed">Completed</MenuItem>
@@ -237,15 +296,21 @@ const BookingForm = () => {
               fullWidth
               variant="contained"
               color="primary"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{
+                mt: 3,
+                mb: 2,
+                padding: 1.5,
+                fontSize: "1rem",
+                background: "linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)",
+              }}
             >
               {isEdit ? "Update Booking" : "Book"}
             </Button>
           </Box>
-        </Box>
+        </Paper>
       </Container>
       <Footer />
-    </>
+    </ThemeProvider>
   );
 };
 

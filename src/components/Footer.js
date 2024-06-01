@@ -13,7 +13,7 @@ function Footer() {
     >
 
         <Typography variant='body2'>
-            &copy; 2024 Akshay Hebbar. All rights reserved.
+            &copy; 2024 SDM Seminar Hall Booking. All rights reserved.
         </Typography>
     </Box>
   )
